@@ -35,8 +35,8 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Use original video URL with minimal optimization for speed
-  const optimizedVideoUrl = videoUrl; // Keep original for best quality and speed
+  // Use original video URL for reliability, then optimize
+  const optimizedVideoUrl = videoUrl; // Use original URL for now
 
   // Generate a simple poster image
   const posterUrl = poster || (videoUrl.includes('cloudinary.com') 
@@ -47,12 +47,18 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
     const video = videoRef.current;
     if (!video) return;
 
+    const handleError = (e: Event) => {
+      console.error('Video loading error:', e);
+      console.error('Video URL:', optimizedVideoUrl);
+      setShowPlayButton(true);
+    };
+
     const handleLoadStart = () => {
-      // Video has started loading
+      console.log('Video loading started:', optimizedVideoUrl);
     };
 
     const handleLoadedMetadata = () => {
-      // Basic video info is loaded
+      console.log('Video metadata loaded');
       setIsLoaded(true);
     };
 
@@ -80,11 +86,6 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
 
     const handlePause = () => {
       setIsPlaying(false);
-    };
-
-    const handleError = (e: Event) => {
-      console.error('Video loading error:', e);
-      setShowPlayButton(true);
     };
 
     video.addEventListener('loadstart', handleLoadStart);

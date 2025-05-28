@@ -43,8 +43,25 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
+  // Generate high-quality video URL using Cloudinary API
+  const getHighQualityVideoUrl = (url: string) => {
+    if (url.includes('cloudinary.com')) {
+      const baseUrl = url.split('/upload/')[0];
+      const videoPath = url.split('/upload/')[1];
+      
+      // Use Cloudinary API for maximum quality
+      // q_100: Maximum quality (no compression)
+      // f_auto: Best format for browser (WebM for Chrome, MP4 for others)
+      // fl_preserve_transparency: Preserve all video data
+      // br_auto: Automatic bitrate optimization without quality loss
+      return `${baseUrl}/upload/q_100,f_auto,fl_preserve_transparency,br_auto/${videoPath}`;
+    }
+    return url;
+  };
+
+  const highQualityVideoUrl = getHighQualityVideoUrl(video.videoUrl);
   const posterUrl = video.videoUrl.includes('cloudinary.com') 
-    ? `${video.videoUrl.split('/upload/')[0]}/upload/so_0.5/${video.videoUrl.split('/upload/')[1].replace('.mp4', '.jpg')}`
+    ? `${video.videoUrl.split('/upload/')[0]}/upload/q_100,f_auto,so_0.5/${video.videoUrl.split('/upload/')[1].replace('.mp4', '.jpg')}`
     : undefined;
 
   useEffect(() => {
@@ -63,25 +80,8 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    if (isMobile) {
-      // Mobile: Use intersection observer to play videos when in view
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) {
-            videoElement.play().catch(() => {
-              // If autoplay fails, that's okay - user can tap to play
-            });
-          } else {
-            videoElement.pause();
-          }
-        },
-        { threshold: 0.3 } // Play when 30% visible
-      );
-
-      observer.observe(videoElement);
-      return () => observer.unobserve(videoElement);
-    } else {
-      // Desktop hover functionality - simple and direct
+    if (!isMobile) {
+      // Desktop hover functionality only
       if (isHovered) {
         videoElement.play().catch(() => {});
       } else {
@@ -89,42 +89,34 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
         videoElement.currentTime = 0; // Reset to beginning
       }
     }
+    // Mobile: No autoplay, just click to play/fullscreen
   }, [isHovered, isMobile]);
 
   const handleVideoClick = () => {
     const videoElement = videoRef.current;
     if (videoElement) {
-      // For mobile devices, try to enter fullscreen on the video element
       if (isMobile) {
-        // On mobile, first try to play the video if it's paused
-        if (videoElement.paused) {
-          videoElement.play().then(() => {
-            // After playing, try fullscreen
-            if (videoElement.requestFullscreen) {
-              videoElement.requestFullscreen().catch(() => {});
-            } else if ((videoElement as any).webkitEnterFullscreen) {
-              (videoElement as any).webkitEnterFullscreen();
-            } else if ((videoElement as any).webkitRequestFullscreen) {
-              (videoElement as any).webkitRequestFullscreen();
-            }
-          }).catch(() => {
-            // If play fails, just try fullscreen
-            if ((videoElement as any).webkitEnterFullscreen) {
-              (videoElement as any).webkitEnterFullscreen();
-            }
-          });
-        } else {
-          // Video is playing, try fullscreen
-          if (videoElement.requestFullscreen) {
-            videoElement.requestFullscreen().catch(() => {});
-          } else if ((videoElement as any).webkitEnterFullscreen) {
+        // Mobile: Play and go fullscreen
+        videoElement.play().then(() => {
+          // After playing, try fullscreen
+          if ((videoElement as any).webkitEnterFullscreen) {
+            // iOS Safari specific method
             (videoElement as any).webkitEnterFullscreen();
+          } else if (videoElement.requestFullscreen) {
+            videoElement.requestFullscreen().catch(() => {});
           } else if ((videoElement as any).webkitRequestFullscreen) {
             (videoElement as any).webkitRequestFullscreen();
           }
-        }
+        }).catch(() => {
+          // If play fails, just try fullscreen
+          if ((videoElement as any).webkitEnterFullscreen) {
+            (videoElement as any).webkitEnterFullscreen();
+          } else if (videoElement.requestFullscreen) {
+            videoElement.requestFullscreen().catch(() => {});
+          }
+        });
       } else {
-        // Desktop fullscreen
+        // Desktop: Just fullscreen (video already playing from hover)
         if (videoElement.requestFullscreen) {
           videoElement.requestFullscreen();
         } else if ((videoElement as any).webkitRequestFullscreen) {
@@ -155,12 +147,11 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
           muted
           loop
           playsInline
-          autoPlay
           webkit-playsinline="true"
           preload="metadata"
           poster={posterUrl}
         >
-          <source src={video.videoUrl} type="video/mp4" />
+          <source src={highQualityVideoUrl} type="video/mp4" />
         </video>
         
         {/* Fullscreen hint on hover */}
@@ -181,15 +172,25 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
 };
 
 const FPVVideos: React.FC = () => {
-  // Generate optimized video URLs
-  const getOptimizedVideoUrl = (url: string, quality: 'low' | 'medium' | 'high') => {
-    // Use original URLs for best quality and speed
+  // Generate high-quality video URLs using Cloudinary API
+  const getHighQualityVideoUrl = (url: string) => {
+    if (url.includes('cloudinary.com')) {
+      const baseUrl = url.split('/upload/')[0];
+      const videoPath = url.split('/upload/')[1];
+      
+      // Use Cloudinary API for maximum quality
+      // q_100: Maximum quality (no compression)
+      // f_auto: Best format for browser (WebM for Chrome, MP4 for others)
+      // fl_preserve_transparency: Preserve all video data
+      // br_auto: Automatic bitrate optimization without quality loss
+      return `${baseUrl}/upload/q_100,f_auto,fl_preserve_transparency,br_auto/${videoPath}`;
+    }
     return url;
   };
 
   const getPosterUrl = (url: string) => {
     if (url.includes('cloudinary.com')) {
-      return `${url.split('/upload/')[0]}/upload/so_0.5/${url.split('/upload/')[1].replace('.mp4', '.jpg')}`;
+      return `${url.split('/upload/')[0]}/upload/q_100,f_auto,so_0.5/${url.split('/upload/')[1].replace('.mp4', '.jpg')}`;
     }
     return undefined;
   };
@@ -246,7 +247,7 @@ const FPVVideos: React.FC = () => {
                   preload="metadata"
                   poster={getPosterUrl(fpvVideos[1].videoUrl)}
                 >
-                  <source src={fpvVideos[1].videoUrl} type="video/mp4" />
+                  <source src={getHighQualityVideoUrl(fpvVideos[1].videoUrl)} type="video/mp4" />
                 </video>
               </div>
             </AnimatedSection>
@@ -276,7 +277,7 @@ const FPVVideos: React.FC = () => {
                   preload="metadata"
                   poster={getPosterUrl(fpvVideos[3].videoUrl)}
                 >
-                  <source src={fpvVideos[3].videoUrl} type="video/mp4" />
+                  <source src={getHighQualityVideoUrl(fpvVideos[3].videoUrl)} type="video/mp4" />
                 </video>
               </div>
             </AnimatedSection>
@@ -299,7 +300,7 @@ const FPVVideos: React.FC = () => {
                 preload="metadata"
                 poster={getPosterUrl(fpvVideos[0].videoUrl)}
               >
-                <source src={fpvVideos[0].videoUrl} type="video/mp4" />
+                <source src={getHighQualityVideoUrl(fpvVideos[0].videoUrl)} type="video/mp4" />
               </video>
             </div>
           </AnimatedSection>
