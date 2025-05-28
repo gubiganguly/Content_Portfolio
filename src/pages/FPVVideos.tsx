@@ -132,6 +132,7 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
           muted
           loop
           playsInline
+          autoPlay
           webkit-playsinline="true"
           preload="metadata"
           poster={posterUrl}
