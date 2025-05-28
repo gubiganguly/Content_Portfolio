@@ -95,15 +95,42 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
   const handleVideoClick = () => {
     const videoElement = videoRef.current;
     if (videoElement) {
-      // Try different fullscreen methods for cross-browser compatibility
-      if (videoElement.requestFullscreen) {
-        videoElement.requestFullscreen();
-      } else if ((videoElement as any).webkitRequestFullscreen) {
-        (videoElement as any).webkitRequestFullscreen();
-      } else if ((videoElement as any).mozRequestFullScreen) {
-        (videoElement as any).mozRequestFullScreen();
-      } else if ((videoElement as any).msRequestFullscreen) {
-        (videoElement as any).msRequestFullscreen();
+      // For mobile devices, try to enter fullscreen on the video element
+      if (isMobile) {
+        // On mobile, we need to handle fullscreen differently
+        if (videoElement.requestFullscreen) {
+          videoElement.requestFullscreen().catch(() => {
+            // If fullscreen fails, try to play/pause the video
+            if (videoElement.paused) {
+              videoElement.play();
+            } else {
+              videoElement.pause();
+            }
+          });
+        } else if ((videoElement as any).webkitEnterFullscreen) {
+          // iOS Safari specific method
+          (videoElement as any).webkitEnterFullscreen();
+        } else if ((videoElement as any).webkitRequestFullscreen) {
+          (videoElement as any).webkitRequestFullscreen();
+        } else {
+          // Fallback: just play/pause
+          if (videoElement.paused) {
+            videoElement.play();
+          } else {
+            videoElement.pause();
+          }
+        }
+      } else {
+        // Desktop fullscreen
+        if (videoElement.requestFullscreen) {
+          videoElement.requestFullscreen();
+        } else if ((videoElement as any).webkitRequestFullscreen) {
+          (videoElement as any).webkitRequestFullscreen();
+        } else if ((videoElement as any).mozRequestFullScreen) {
+          (videoElement as any).mozRequestFullScreen();
+        } else if ((videoElement as any).msRequestFullscreen) {
+          (videoElement as any).msRequestFullscreen();
+        }
       }
     }
   };
@@ -125,6 +152,8 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
           muted
           loop
           playsInline
+          webkit-playsinline="true"
+          preload="metadata"
         >
           <source src={video.videoUrl} type="video/mp4" />
         </video>
@@ -195,6 +224,8 @@ const FPVVideos: React.FC = () => {
                   loop
                   playsInline
                   autoPlay
+                  webkit-playsinline="true"
+                  preload="metadata"
                 >
                   <source src={fpvVideos[1].videoUrl} type="video/mp4" />
                 </video>
@@ -222,6 +253,8 @@ const FPVVideos: React.FC = () => {
                   loop
                   playsInline
                   autoPlay
+                  webkit-playsinline="true"
+                  preload="metadata"
                 >
                   <source src={fpvVideos[3].videoUrl} type="video/mp4" />
                 </video>
@@ -242,6 +275,8 @@ const FPVVideos: React.FC = () => {
                 loop
                 playsInline
                 autoPlay
+                webkit-playsinline="true"
+                preload="metadata"
               >
                 <source src={fpvVideos[0].videoUrl} type="video/mp4" />
               </video>
