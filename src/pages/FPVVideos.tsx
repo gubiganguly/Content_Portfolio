@@ -43,6 +43,32 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
   const [isInView, setIsInView] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Generate optimized video URLs
+  const getOptimizedVideoUrl = (url: string, quality: 'low' | 'medium' | 'high') => {
+    if (url.includes('cloudinary.com')) {
+      const baseUrl = url.split('/upload/')[0];
+      const videoPath = url.split('/upload/')[1];
+      
+      switch (quality) {
+        case 'low':
+          return `${baseUrl}/upload/q_auto:low,w_600,br_300k/${videoPath}`;
+        case 'medium':
+          return `${baseUrl}/upload/q_auto:good,w_1200,br_800k/${videoPath}`;
+        case 'high':
+          return `${baseUrl}/upload/q_auto:best,br_1500k/${videoPath}`;
+        default:
+          return url;
+      }
+    }
+    return url;
+  };
+
+  const optimizedVideoUrl = getOptimizedVideoUrl(video.videoUrl, isMobile ? 'medium' : 'high');
+  const posterUrl = video.videoUrl.includes('cloudinary.com') 
+    ? `${video.videoUrl.split('/upload/')[0]}/upload/so_1,q_auto:low,w_600/${video.videoUrl.split('/upload/')[1].replace('.mp4', '.jpg')}`
+    : undefined;
 
   useEffect(() => {
     // Check if device is mobile
@@ -60,12 +86,18 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
+    const handleLoadedData = () => {
+      setIsLoaded(true);
+    };
+
+    videoElement.addEventListener('loadeddata', handleLoadedData);
+
     // Intersection Observer for mobile autoplay
     if (isMobile) {
       const observer = new IntersectionObserver(
         ([entry]) => {
           setIsInView(entry.isIntersecting);
-          if (entry.isIntersecting) {
+          if (entry.isIntersecting && isLoaded) {
             videoElement.play().catch(() => {});
           } else {
             videoElement.pause();
@@ -75,13 +107,20 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
       );
 
       observer.observe(videoElement);
-      return () => observer.unobserve(videoElement);
+      return () => {
+        observer.unobserve(videoElement);
+        videoElement.removeEventListener('loadeddata', handleLoadedData);
+      };
     }
-  }, [isMobile]);
+
+    return () => {
+      videoElement.removeEventListener('loadeddata', handleLoadedData);
+    };
+  }, [isMobile, isLoaded]);
 
   useEffect(() => {
     const videoElement = videoRef.current;
-    if (!videoElement || isMobile) return;
+    if (!videoElement || isMobile || !isLoaded) return;
 
     // Desktop hover functionality
     if (isHovered) {
@@ -90,7 +129,7 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
       videoElement.pause();
       videoElement.currentTime = 0; // Reset to beginning
     }
-  }, [isHovered, isMobile]);
+  }, [isHovered, isMobile, isLoaded]);
 
   const handleVideoClick = () => {
     const videoElement = videoRef.current;
@@ -154,9 +193,17 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
           playsInline
           webkit-playsinline="true"
           preload="metadata"
+          poster={posterUrl}
         >
-          <source src={video.videoUrl} type="video/mp4" />
+          <source src={optimizedVideoUrl} type="video/mp4" />
         </video>
+        
+        {/* Loading indicator */}
+        {!isLoaded && (
+          <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-gold-400 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
         
         {/* Fullscreen hint on hover */}
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -176,6 +223,33 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
 };
 
 const FPVVideos: React.FC = () => {
+  // Generate optimized video URLs for floating videos
+  const getOptimizedVideoUrl = (url: string, quality: 'low' | 'medium' | 'high') => {
+    if (url.includes('cloudinary.com')) {
+      const baseUrl = url.split('/upload/')[0];
+      const videoPath = url.split('/upload/')[1];
+      
+      switch (quality) {
+        case 'low':
+          return `${baseUrl}/upload/q_auto:low,w_600,br_300k/${videoPath}`;
+        case 'medium':
+          return `${baseUrl}/upload/q_auto:good,w_1200,br_800k/${videoPath}`;
+        case 'high':
+          return `${baseUrl}/upload/q_auto:best,br_1500k/${videoPath}`;
+        default:
+          return url;
+      }
+    }
+    return url;
+  };
+
+  const getPosterUrl = (url: string) => {
+    if (url.includes('cloudinary.com')) {
+      return `${url.split('/upload/')[0]}/upload/so_1,q_auto:low,w_800/${url.split('/upload/')[1].replace('.mp4', '.jpg')}`;
+    }
+    return undefined;
+  };
+
   return (
     <div className="min-h-screen bg-black text-white">
       <Navbar />
@@ -226,8 +300,9 @@ const FPVVideos: React.FC = () => {
                   autoPlay
                   webkit-playsinline="true"
                   preload="metadata"
+                  poster={getPosterUrl(fpvVideos[1].videoUrl)}
                 >
-                  <source src={fpvVideos[1].videoUrl} type="video/mp4" />
+                  <source src={getOptimizedVideoUrl(fpvVideos[1].videoUrl, 'medium')} type="video/mp4" />
                 </video>
               </div>
             </AnimatedSection>
@@ -255,8 +330,9 @@ const FPVVideos: React.FC = () => {
                   autoPlay
                   webkit-playsinline="true"
                   preload="metadata"
+                  poster={getPosterUrl(fpvVideos[3].videoUrl)}
                 >
-                  <source src={fpvVideos[3].videoUrl} type="video/mp4" />
+                  <source src={getOptimizedVideoUrl(fpvVideos[3].videoUrl, 'medium')} type="video/mp4" />
                 </video>
               </div>
             </AnimatedSection>
@@ -277,8 +353,9 @@ const FPVVideos: React.FC = () => {
                 autoPlay
                 webkit-playsinline="true"
                 preload="metadata"
+                poster={getPosterUrl(fpvVideos[0].videoUrl)}
               >
-                <source src={fpvVideos[0].videoUrl} type="video/mp4" />
+                <source src={getOptimizedVideoUrl(fpvVideos[0].videoUrl, 'high')} type="video/mp4" />
               </video>
             </div>
           </AnimatedSection>

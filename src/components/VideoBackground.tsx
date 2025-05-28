@@ -20,10 +20,12 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
   const [isMobile, setIsMobile] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [showPlayButton, setShowPlayButton] = useState(false);
+  const [currentQuality, setCurrentQuality] = useState<'low' | 'high'>('low');
   const videoRef = useRef<HTMLVideoElement>(null);
+  const highQualityVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    // Detect mobile device
+    // Detect mobile device and connection
     const checkMobile = () => {
       const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
       setIsMobile(mobile);
@@ -35,8 +37,29 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Generate optimized video URLs
+  const getOptimizedVideoUrl = (url: string, quality: 'low' | 'high') => {
+    if (url.includes('cloudinary.com')) {
+      const baseUrl = url.split('/upload/')[0];
+      const videoPath = url.split('/upload/')[1];
+      
+      if (quality === 'low') {
+        // Lower quality for fast initial load
+        return `${baseUrl}/upload/q_auto:low,w_800,br_500k/${videoPath}`;
+      } else {
+        // High quality for final playback
+        return `${baseUrl}/upload/q_auto:good,br_2000k/${videoPath}`;
+      }
+    }
+    return url;
+  };
+
+  const lowQualityUrl = getOptimizedVideoUrl(videoUrl, 'low');
+  const highQualityUrl = getOptimizedVideoUrl(videoUrl, 'high');
+
   useEffect(() => {
     const video = videoRef.current;
+    const highQualityVideo = highQualityVideoRef.current;
     if (!video) return;
 
     const handleLoadedData = () => {
@@ -52,6 +75,13 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
           .then(() => {
             setIsPlaying(true);
             setShowPlayButton(false);
+            
+            // Start loading high quality version in background
+            if (highQualityVideo && currentQuality === 'low') {
+              setTimeout(() => {
+                highQualityVideo.load();
+              }, 1000);
+            }
           })
           .catch(() => {
             // Autoplay failed, show play button on mobile
@@ -76,13 +106,37 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
 
+    // High quality video event listeners
+    if (highQualityVideo) {
+      const handleHighQualityCanPlay = () => {
+        if (isPlaying && currentQuality === 'low') {
+          const currentTime = video.currentTime;
+          highQualityVideo.currentTime = currentTime;
+          highQualityVideo.play().then(() => {
+            setCurrentQuality('high');
+            video.pause();
+          }).catch(console.error);
+        }
+      };
+
+      highQualityVideo.addEventListener('canplay', handleHighQualityCanPlay);
+      
+      return () => {
+        video.removeEventListener('loadeddata', handleLoadedData);
+        video.removeEventListener('canplay', handleCanPlay);
+        video.removeEventListener('play', handlePlay);
+        video.removeEventListener('pause', handlePause);
+        highQualityVideo.removeEventListener('canplay', handleHighQualityCanPlay);
+      };
+    }
+
     return () => {
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
     };
-  }, [videoUrl, isMobile]);
+  }, [videoUrl, isMobile, isPlaying, currentQuality]);
 
   const handleUserInteraction = () => {
     const video = videoRef.current;
@@ -96,14 +150,17 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
   };
 
   // Generate a poster image URL from the video if none provided
-  const posterUrl = poster || `${videoUrl}#t=1`;
+  const posterUrl = poster || (videoUrl.includes('cloudinary.com') 
+    ? `${videoUrl.split('/upload/')[0]}/upload/so_1,q_auto:low/${videoUrl.split('/upload/')[1].replace('.mp4', '.jpg')}`
+    : `${videoUrl}#t=1`);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-gray-900">
+      {/* Low quality video for fast initial load */}
       <video
         ref={videoRef}
         className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-1000 ${
-          isLoaded && (isPlaying || isMobile) ? 'opacity-100' : 'opacity-0'
+          isLoaded && (isPlaying || isMobile) && currentQuality === 'low' ? 'opacity-100' : 'opacity-0'
         }`}
         muted
         loop
@@ -112,8 +169,23 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
         poster={posterUrl}
         webkit-playsinline="true"
       >
-        <source src={videoUrl} type="video/mp4" />
+        <source src={lowQualityUrl} type="video/mp4" />
         Your browser does not support the video tag.
+      </video>
+
+      {/* High quality video for seamless upgrade */}
+      <video
+        ref={highQualityVideoRef}
+        className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-1000 ${
+          currentQuality === 'high' ? 'opacity-100' : 'opacity-0'
+        }`}
+        muted
+        loop
+        playsInline
+        preload="none"
+        webkit-playsinline="true"
+      >
+        <source src={highQualityUrl} type="video/mp4" />
       </video>
       
       {/* Loading placeholder */}
