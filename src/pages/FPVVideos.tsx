@@ -40,18 +40,9 @@ const fpvVideos: VideoData[] = [
 
 const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isInView, setIsInView] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Generate optimized video URLs
-  const getOptimizedVideoUrl = (url: string, quality: 'low' | 'medium' | 'high') => {
-    // Use original URLs for best quality and speed
-    return url;
-  };
-
-  const optimizedVideoUrl = video.videoUrl; // Use original for best quality
   const posterUrl = video.videoUrl.includes('cloudinary.com') 
     ? `${video.videoUrl.split('/upload/')[0]}/upload/so_0.5/${video.videoUrl.split('/upload/')[1].replace('.mp4', '.jpg')}`
     : undefined;
@@ -70,52 +61,16 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
 
   useEffect(() => {
     const videoElement = videoRef.current;
-    if (!videoElement) return;
+    if (!videoElement || isMobile) return;
 
-    const handleLoadedData = () => {
-      setIsLoaded(true);
-    };
-
-    videoElement.addEventListener('loadeddata', handleLoadedData);
-
-    // Intersection Observer for mobile autoplay
-    if (isMobile) {
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          setIsInView(entry.isIntersecting);
-          if (entry.isIntersecting && isLoaded) {
-            videoElement.play().catch(() => {});
-          } else {
-            videoElement.pause();
-          }
-        },
-        { threshold: 0.5 }
-      );
-
-      observer.observe(videoElement);
-      return () => {
-        observer.unobserve(videoElement);
-        videoElement.removeEventListener('loadeddata', handleLoadedData);
-      };
-    }
-
-    return () => {
-      videoElement.removeEventListener('loadeddata', handleLoadedData);
-    };
-  }, [isMobile, isLoaded]);
-
-  useEffect(() => {
-    const videoElement = videoRef.current;
-    if (!videoElement || isMobile || !isLoaded) return;
-
-    // Desktop hover functionality
+    // Desktop hover functionality - simple and direct
     if (isHovered) {
       videoElement.play().catch(() => {});
     } else {
       videoElement.pause();
       videoElement.currentTime = 0; // Reset to beginning
     }
-  }, [isHovered, isMobile, isLoaded]);
+  }, [isHovered, isMobile]);
 
   const handleVideoClick = () => {
     const videoElement = videoRef.current;
@@ -181,15 +136,8 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
           preload="metadata"
           poster={posterUrl}
         >
-          <source src={optimizedVideoUrl} type="video/mp4" />
+          <source src={video.videoUrl} type="video/mp4" />
         </video>
-        
-        {/* Loading indicator */}
-        {!isLoaded && (
-          <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gold-400 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        )}
         
         {/* Fullscreen hint on hover */}
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
