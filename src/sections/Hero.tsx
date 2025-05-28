@@ -15,7 +15,7 @@ const Hero: React.FC = () => {
   return (
     <div className="relative h-screen">
       <VideoBackground
-        videoUrl="https://youtu.be/fwEfvkIsnpY"
+        videoUrl="https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399841/Boat_2_jr4rzh.mp4"
         overlayOpacity={0.5}
       >
         <div className="flex flex-col justify-center items-center h-full px-4 text-center">
