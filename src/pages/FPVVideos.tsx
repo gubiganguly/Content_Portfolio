@@ -44,8 +44,8 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // For now, no poster - we'll add thumbnail generation later
-  const posterUrl = undefined;
+  // Generate poster from video first frame using time fragment
+  const posterUrl = `${video.videoUrl}#t=0.5`;
 
   useEffect(() => {
     // Check if device is mobile
@@ -155,9 +155,9 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
 };
 
 const FPVVideos: React.FC = () => {
-  // For now, no posters - we'll add thumbnail generation later
+  // Generate poster from video first frame using time fragment
   const getPosterUrl = (url: string) => {
-    return undefined;
+    return `${url}#t=0.5`;
   };
 
   return (
