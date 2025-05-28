@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import AnimatedSection from '../components/AnimatedSection';
 import Navbar from '../components/Navbar';
+import { firebaseVideoUrls } from '../data/videoUrls';
 
 interface VideoData {
   id: string;
@@ -13,27 +14,27 @@ interface VideoData {
 const fpvVideos: VideoData[] = [
   {
     id: 'boat-2',
-    videoUrl: 'https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399841/Boat_2_jr4rzh.mp4',
+    videoUrl: firebaseVideoUrls.fpv.boat2,
     size: 'medium'
   },
   {
     id: 'boat-1',
-    videoUrl: 'https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399838/Boat_1_idaova.mp4',
+    videoUrl: firebaseVideoUrls.fpv.boat1,
     size: 'wide'
   },
   {
     id: 'jetski-1',
-    videoUrl: 'https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399842/Jetski_1_j8t7mv.mp4',
+    videoUrl: firebaseVideoUrls.fpv.jetski1,
     size: 'large'
   },
   {
     id: 'barge-1',
-    videoUrl: 'https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399840/Barge_1_idpi8k.mp4',
+    videoUrl: firebaseVideoUrls.fpv.barge1,
     size: 'small'
   },
   {
     id: 'barge-2',
-    videoUrl: 'https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399836/Barge_2_lwhsep.mp4',
+    videoUrl: firebaseVideoUrls.fpv.barge2,
     size: 'medium'
   }
 ];
@@ -43,9 +44,8 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  const posterUrl = video.videoUrl.includes('cloudinary.com') 
-    ? `${video.videoUrl.split('/upload/')[0]}/upload/so_0.5/${video.videoUrl.split('/upload/')[1].replace('.mp4', '.jpg')}`
-    : undefined;
+  // For now, no poster - we'll add thumbnail generation later
+  const posterUrl = undefined;
 
   useEffect(() => {
     // Check if device is mobile
@@ -155,10 +155,8 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
 };
 
 const FPVVideos: React.FC = () => {
+  // For now, no posters - we'll add thumbnail generation later
   const getPosterUrl = (url: string) => {
-    if (url.includes('cloudinary.com')) {
-      return `${url.split('/upload/')[0]}/upload/so_0.5/${url.split('/upload/')[1].replace('.mp4', '.jpg')}`;
-    }
     return undefined;
   };
 

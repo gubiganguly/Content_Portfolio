@@ -3,6 +3,7 @@ import VideoBackground from '../components/VideoBackground';
 import Button from '../components/Button';
 import { ChevronDown } from 'lucide-react';
 import AnimatedSection from '../components/AnimatedSection';
+import { firebaseVideoUrls } from '../data/videoUrls';
 
 const Hero: React.FC = () => {
   const scrollToServices = () => {
@@ -15,7 +16,7 @@ const Hero: React.FC = () => {
   return (
     <div className="relative h-screen">
       <VideoBackground
-        videoUrl="https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399841/Boat_2_jr4rzh.mp4"
+        videoUrl={firebaseVideoUrls.hero}
         overlayOpacity={0.5}
       >
         <div className="flex flex-col justify-center items-center h-full px-4 text-center">

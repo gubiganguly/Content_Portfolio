@@ -35,21 +35,22 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Use original video URL for reliability, then optimize
-  const optimizedVideoUrl = videoUrl; // Use original URL for now
+  // Use original video URL for Firebase
+  const optimizedVideoUrl = videoUrl;
 
-  // Generate a simple poster image
-  const posterUrl = poster || (videoUrl.includes('cloudinary.com') 
-    ? `${videoUrl.split('/upload/')[0]}/upload/so_0.5/${videoUrl.split('/upload/')[1].replace('.mp4', '.jpg')}`
-    : undefined);
+  // Generate a simple poster image (or use provided poster)
+  const posterUrl = poster;
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    console.log('VideoBackground: Setting up video with URL:', optimizedVideoUrl);
+
     const handleError = (e: Event) => {
       console.error('Video loading error:', e);
       console.error('Video URL:', optimizedVideoUrl);
+      console.error('Video element:', video);
       setShowPlayButton(true);
     };
 
@@ -58,21 +59,24 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
     };
 
     const handleLoadedMetadata = () => {
-      console.log('Video metadata loaded');
+      console.log('Video metadata loaded, duration:', video.duration);
       setIsLoaded(true);
     };
 
     const handleCanPlay = () => {
+      console.log('Video can play, attempting autoplay...');
       // Video can start playing
       const playPromise = video.play();
       
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
+            console.log('Video playing successfully');
             setIsPlaying(true);
             setShowPlayButton(false);
           })
-          .catch(() => {
+          .catch((error) => {
+            console.error('Autoplay failed:', error);
             // Autoplay failed, show play button
             setShowPlayButton(true);
           });
@@ -80,13 +84,18 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
     };
 
     const handlePlay = () => {
+      console.log('Video play event fired');
       setIsPlaying(true);
       setShowPlayButton(false);
     };
 
     const handlePause = () => {
+      console.log('Video paused');
       setIsPlaying(false);
     };
+
+    // Force load the video
+    video.load();
 
     video.addEventListener('loadstart', handleLoadStart);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -103,7 +112,7 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('error', handleError);
     };
-  }, [videoUrl]);
+  }, [optimizedVideoUrl]);
 
   const handleUserInteraction = () => {
     const video = videoRef.current;
@@ -122,15 +131,15 @@ const VideoBackground: React.FC<VideoBackgroundProps> = ({
       <video
         ref={videoRef}
         className={`absolute top-0 left-0 w-full h-full object-cover transition-opacity duration-300 ${
-          isLoaded && (isPlaying || (isMobile && isLoaded)) ? 'opacity-100' : 'opacity-0'
+          isLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         muted
         loop
         playsInline
-        preload="metadata"
+        preload="auto"
         poster={posterUrl}
         webkit-playsinline="true"
-        crossOrigin="anonymous"
+        autoPlay
       >
         <source src={optimizedVideoUrl} type="video/mp4" />
         Your browser does not support the video tag.
