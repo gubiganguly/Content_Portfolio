@@ -61,14 +61,33 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
 
   useEffect(() => {
     const videoElement = videoRef.current;
-    if (!videoElement || isMobile) return;
+    if (!videoElement) return;
 
-    // Desktop hover functionality - simple and direct
-    if (isHovered) {
-      videoElement.play().catch(() => {});
+    if (isMobile) {
+      // Mobile: Use intersection observer to play videos when in view
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            videoElement.play().catch(() => {
+              // If autoplay fails, that's okay - user can tap to play
+            });
+          } else {
+            videoElement.pause();
+          }
+        },
+        { threshold: 0.3 } // Play when 30% visible
+      );
+
+      observer.observe(videoElement);
+      return () => observer.unobserve(videoElement);
     } else {
-      videoElement.pause();
-      videoElement.currentTime = 0; // Reset to beginning
+      // Desktop hover functionality - simple and direct
+      if (isHovered) {
+        videoElement.play().catch(() => {});
+      } else {
+        videoElement.pause();
+        videoElement.currentTime = 0; // Reset to beginning
+      }
     }
   }, [isHovered, isMobile]);
 
@@ -77,27 +96,31 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
     if (videoElement) {
       // For mobile devices, try to enter fullscreen on the video element
       if (isMobile) {
-        // On mobile, we need to handle fullscreen differently
-        if (videoElement.requestFullscreen) {
-          videoElement.requestFullscreen().catch(() => {
-            // If fullscreen fails, try to play/pause the video
-            if (videoElement.paused) {
-              videoElement.play();
-            } else {
-              videoElement.pause();
+        // On mobile, first try to play the video if it's paused
+        if (videoElement.paused) {
+          videoElement.play().then(() => {
+            // After playing, try fullscreen
+            if (videoElement.requestFullscreen) {
+              videoElement.requestFullscreen().catch(() => {});
+            } else if ((videoElement as any).webkitEnterFullscreen) {
+              (videoElement as any).webkitEnterFullscreen();
+            } else if ((videoElement as any).webkitRequestFullscreen) {
+              (videoElement as any).webkitRequestFullscreen();
+            }
+          }).catch(() => {
+            // If play fails, just try fullscreen
+            if ((videoElement as any).webkitEnterFullscreen) {
+              (videoElement as any).webkitEnterFullscreen();
             }
           });
-        } else if ((videoElement as any).webkitEnterFullscreen) {
-          // iOS Safari specific method
-          (videoElement as any).webkitEnterFullscreen();
-        } else if ((videoElement as any).webkitRequestFullscreen) {
-          (videoElement as any).webkitRequestFullscreen();
         } else {
-          // Fallback: just play/pause
-          if (videoElement.paused) {
-            videoElement.play();
-          } else {
-            videoElement.pause();
+          // Video is playing, try fullscreen
+          if (videoElement.requestFullscreen) {
+            videoElement.requestFullscreen().catch(() => {});
+          } else if ((videoElement as any).webkitEnterFullscreen) {
+            (videoElement as any).webkitEnterFullscreen();
+          } else if ((videoElement as any).webkitRequestFullscreen) {
+            (videoElement as any).webkitRequestFullscreen();
           }
         }
       } else {
