@@ -13,62 +13,40 @@ interface VideoData {
 const fpvVideos: VideoData[] = [
   {
     id: 'boat-2',
-    videoUrl: 'https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399841/Boat_2_jr4rzh.mp4',
+    videoUrl: 'fwEfvkIsnpY',
     size: 'medium'
   },
   {
     id: 'boat-1',
-    videoUrl: 'https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399838/Boat_1_idaova.mp4',
+    videoUrl: '8j0MWVc_Pf4',
     size: 'wide'
   },
   {
     id: 'jetski-1',
-    videoUrl: 'https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399842/Jetski_1_j8t7mv.mp4',
+    videoUrl: '04mvwDnG3pA',
     size: 'large'
   },
   {
     id: 'barge-1',
-    videoUrl: 'https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399840/Barge_1_idpi8k.mp4',
+    videoUrl: 'JjrgBsMgGhU',
     size: 'small'
   },
   {
     id: 'barge-2',
-    videoUrl: 'https://res.cloudinary.com/dqksnhqxv/video/upload/v1748399836/Barge_2_lwhsep.mp4',
+    videoUrl: 'QVoSs7BYnq0',
     size: 'medium'
   }
 ];
 
 const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isInView, setIsInView] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Generate optimized video URLs
-  const getOptimizedVideoUrl = (url: string, quality: 'low' | 'medium' | 'high') => {
-    if (url.includes('cloudinary.com')) {
-      const baseUrl = url.split('/upload/')[0];
-      const videoPath = url.split('/upload/')[1];
-      
-      switch (quality) {
-        case 'low':
-          return `${baseUrl}/upload/q_auto:low,w_600,br_300k/${videoPath}`;
-        case 'medium':
-          return `${baseUrl}/upload/q_auto:good,w_1200,br_800k/${videoPath}`;
-        case 'high':
-          return `${baseUrl}/upload/q_auto:best,br_1500k/${videoPath}`;
-        default:
-          return url;
-      }
-    }
-    return url;
-  };
-
-  const optimizedVideoUrl = getOptimizedVideoUrl(video.videoUrl, isMobile ? 'medium' : 'high');
-  const posterUrl = video.videoUrl.includes('cloudinary.com') 
-    ? `${video.videoUrl.split('/upload/')[0]}/upload/so_1,q_auto:low,w_600/${video.videoUrl.split('/upload/')[1].replace('.mp4', '.jpg')}`
-    : undefined;
+  // YouTube thumbnail URL for poster
+  const posterUrl = `https://img.youtube.com/vi/${video.videoUrl}/maxresdefault.jpg`;
 
   useEffect(() => {
     // Check if device is mobile
@@ -83,95 +61,64 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
   }, []);
 
   useEffect(() => {
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentWindow) return;
 
-    const handleLoadedData = () => {
-      setIsLoaded(true);
+    // Control playback through YouTube iframe API
+    const playVideo = () => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage(
+          '{"event":"command","func":"playVideo","args":""}',
+          '*'
+        );
+      }
     };
 
-    videoElement.addEventListener('loadeddata', handleLoadedData);
+    const pauseVideo = () => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage(
+          '{"event":"command","func":"pauseVideo","args":""}',
+          '*'
+        );
+      }
+    };
 
-    // Intersection Observer for mobile autoplay
-    if (isMobile) {
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          setIsInView(entry.isIntersecting);
-          if (entry.isIntersecting && isLoaded) {
-            videoElement.play().catch(() => {});
-          } else {
-            videoElement.pause();
-          }
-        },
-        { threshold: 0.5 }
-      );
-
-      observer.observe(videoElement);
-      return () => {
-        observer.unobserve(videoElement);
-        videoElement.removeEventListener('loadeddata', handleLoadedData);
-      };
+    // Mobile: play when in view
+    if (isMobile && isInView && isLoaded) {
+      playVideo();
+    } else if (isMobile && !isInView) {
+      pauseVideo();
     }
 
-    return () => {
-      videoElement.removeEventListener('loadeddata', handleLoadedData);
-    };
-  }, [isMobile, isLoaded]);
+    // Desktop: play on hover
+    if (!isMobile && isHovered && isLoaded) {
+      playVideo();
+    } else if (!isMobile && !isHovered) {
+      pauseVideo();
+    }
+  }, [isHovered, isMobile, isInView, isLoaded]);
 
   useEffect(() => {
-    const videoElement = videoRef.current;
-    if (!videoElement || isMobile || !isLoaded) return;
+    if (!iframeRef.current) return;
 
-    // Desktop hover functionality
-    if (isHovered) {
-      videoElement.play().catch(() => {});
-    } else {
-      videoElement.pause();
-      videoElement.currentTime = 0; // Reset to beginning
-    }
-  }, [isHovered, isMobile, isLoaded]);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting);
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(iframeRef.current);
+    return () => {
+      if (iframeRef.current) {
+        observer.unobserve(iframeRef.current);
+      }
+    };
+  }, []);
 
   const handleVideoClick = () => {
-    const videoElement = videoRef.current;
-    if (videoElement) {
-      // For mobile devices, try to enter fullscreen on the video element
-      if (isMobile) {
-        // On mobile, we need to handle fullscreen differently
-        if (videoElement.requestFullscreen) {
-          videoElement.requestFullscreen().catch(() => {
-            // If fullscreen fails, try to play/pause the video
-            if (videoElement.paused) {
-              videoElement.play();
-            } else {
-              videoElement.pause();
-            }
-          });
-        } else if ((videoElement as any).webkitEnterFullscreen) {
-          // iOS Safari specific method
-          (videoElement as any).webkitEnterFullscreen();
-        } else if ((videoElement as any).webkitRequestFullscreen) {
-          (videoElement as any).webkitRequestFullscreen();
-        } else {
-          // Fallback: just play/pause
-          if (videoElement.paused) {
-            videoElement.play();
-          } else {
-            videoElement.pause();
-          }
-        }
-      } else {
-        // Desktop fullscreen
-        if (videoElement.requestFullscreen) {
-          videoElement.requestFullscreen();
-        } else if ((videoElement as any).webkitRequestFullscreen) {
-          (videoElement as any).webkitRequestFullscreen();
-        } else if ((videoElement as any).mozRequestFullScreen) {
-          (videoElement as any).mozRequestFullScreen();
-        } else if ((videoElement as any).msRequestFullscreen) {
-          (videoElement as any).msRequestFullscreen();
-        }
-      }
-    }
+    // Open YouTube video in fullscreen mode
+    window.open(`https://www.youtube.com/watch?v=${video.videoUrl}`, '_blank');
   };
 
   return (
@@ -180,76 +127,51 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
       className="group relative overflow-hidden rounded-2xl bg-gray-950 cursor-pointer"
     >
       <div 
-        className="relative w-full"
+        className="relative w-full h-full"
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
         onClick={handleVideoClick}
       >
-        <video
-          ref={videoRef}
-          className="w-full h-auto object-contain transition-all duration-700 group-hover:scale-105"
-          muted
-          loop
-          playsInline
-          webkit-playsinline="true"
-          preload="metadata"
-          poster={posterUrl}
-        >
-          <source src={optimizedVideoUrl} type="video/mp4" />
-        </video>
+        {/* YouTube iframe */}
+        <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+          <iframe
+            ref={iframeRef}
+            className="absolute top-0 left-0 w-full h-full transition-all duration-700 group-hover:scale-105"
+            src={`https://www.youtube.com/embed/${video.videoUrl}?enablejsapi=1&autoplay=0&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${video.videoUrl}&modestbranding=1&playsinline=1&disablekb=1&fs=0`}
+            title={`Video ${video.id}`}
+            frameBorder="0"
+            allow="autoplay; encrypted-media"
+            allowFullScreen={false}
+            onLoad={() => setIsLoaded(true)}
+          />
+        </div>
         
         {/* Loading indicator */}
         {!isLoaded && (
           <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gold-400 border-t-transparent rounded-full animate-spin"></div>
+            <img src={posterUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
+            <div className="w-6 h-6 border-2 border-gold-400 border-t-transparent rounded-full animate-spin relative z-10"></div>
           </div>
         )}
         
         {/* Fullscreen hint on hover */}
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div className="bg-black/70 text-white px-2 py-1 rounded text-xs">
-            Click for fullscreen
+            Click to watch on YouTube
           </div>
         </div>
         
         {/* Subtle overlay on hover */}
-        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
         
         {/* Subtle glow effect */}
-        <div className="absolute inset-0 ring-1 ring-gold-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="absolute inset-0 ring-1 ring-gold-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       </div>
     </AnimatedSection>
   );
 };
 
 const FPVVideos: React.FC = () => {
-  // Generate optimized video URLs for floating videos
-  const getOptimizedVideoUrl = (url: string, quality: 'low' | 'medium' | 'high') => {
-    if (url.includes('cloudinary.com')) {
-      const baseUrl = url.split('/upload/')[0];
-      const videoPath = url.split('/upload/')[1];
-      
-      switch (quality) {
-        case 'low':
-          return `${baseUrl}/upload/q_auto:low,w_600,br_300k/${videoPath}`;
-        case 'medium':
-          return `${baseUrl}/upload/q_auto:good,w_1200,br_800k/${videoPath}`;
-        case 'high':
-          return `${baseUrl}/upload/q_auto:best,br_1500k/${videoPath}`;
-        default:
-          return url;
-      }
-    }
-    return url;
-  };
-
-  const getPosterUrl = (url: string) => {
-    if (url.includes('cloudinary.com')) {
-      return `${url.split('/upload/')[0]}/upload/so_1,q_auto:low,w_800/${url.split('/upload/')[1].replace('.mp4', '.jpg')}`;
-    }
-    return undefined;
-  };
-
   return (
     <div className="min-h-screen bg-black text-white">
       <Navbar />
@@ -292,18 +214,16 @@ const FPVVideos: React.FC = () => {
             {/* Left floating video */}
             <AnimatedSection delay={200} className="relative">
               <div className="rounded-3xl overflow-hidden shadow-2xl transform rotate-3 hover:rotate-0 transition-transform duration-700 bg-gray-950">
-                <video
-                  className="w-full h-auto object-contain"
-                  muted
-                  loop
-                  playsInline
-                  autoPlay
-                  webkit-playsinline="true"
-                  preload="metadata"
-                  poster={getPosterUrl(fpvVideos[1].videoUrl)}
-                >
-                  <source src={getOptimizedVideoUrl(fpvVideos[1].videoUrl, 'medium')} type="video/mp4" />
-                </video>
+                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                  <iframe
+                    className="absolute top-0 left-0 w-full h-full"
+                    src={`https://www.youtube.com/embed/${fpvVideos[1].videoUrl}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${fpvVideos[1].videoUrl}&modestbranding=1&playsinline=1&disablekb=1`}
+                    title="Floating video left"
+                    frameBorder="0"
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen={false}
+                  />
+                </div>
               </div>
             </AnimatedSection>
 
@@ -322,18 +242,16 @@ const FPVVideos: React.FC = () => {
             {/* Right floating video */}
             <AnimatedSection delay={600} className="relative">
               <div className="rounded-3xl overflow-hidden shadow-2xl transform -rotate-3 hover:rotate-0 transition-transform duration-700 bg-gray-950">
-                <video
-                  className="w-full h-auto object-contain"
-                  muted
-                  loop
-                  playsInline
-                  autoPlay
-                  webkit-playsinline="true"
-                  preload="metadata"
-                  poster={getPosterUrl(fpvVideos[3].videoUrl)}
-                >
-                  <source src={getOptimizedVideoUrl(fpvVideos[3].videoUrl, 'medium')} type="video/mp4" />
-                </video>
+                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                  <iframe
+                    className="absolute top-0 left-0 w-full h-full"
+                    src={`https://www.youtube.com/embed/${fpvVideos[3].videoUrl}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${fpvVideos[3].videoUrl}&modestbranding=1&playsinline=1&disablekb=1`}
+                    title="Floating video right"
+                    frameBorder="0"
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen={false}
+                  />
+                </div>
               </div>
             </AnimatedSection>
           </div>
@@ -345,18 +263,16 @@ const FPVVideos: React.FC = () => {
         <div className="container mx-auto px-4 md:px-8">
           <AnimatedSection>
             <div className="rounded-3xl overflow-hidden shadow-2xl bg-gray-950">
-              <video
-                className="w-full h-auto object-contain"
-                muted
-                loop
-                playsInline
-                autoPlay
-                webkit-playsinline="true"
-                preload="metadata"
-                poster={getPosterUrl(fpvVideos[0].videoUrl)}
-              >
-                <source src={getOptimizedVideoUrl(fpvVideos[0].videoUrl, 'high')} type="video/mp4" />
-              </video>
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  className="absolute top-0 left-0 w-full h-full"
+                  src={`https://www.youtube.com/embed/${fpvVideos[0].videoUrl}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${fpvVideos[0].videoUrl}&modestbranding=1&playsinline=1&disablekb=1`}
+                  title="Full width cinematic video"
+                  frameBorder="0"
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen={false}
+                />
+              </div>
             </div>
           </AnimatedSection>
         </div>
