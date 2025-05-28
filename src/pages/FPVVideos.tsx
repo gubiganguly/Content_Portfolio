@@ -43,25 +43,8 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Generate high-quality video URL using Cloudinary API
-  const getHighQualityVideoUrl = (url: string) => {
-    if (url.includes('cloudinary.com')) {
-      const baseUrl = url.split('/upload/')[0];
-      const videoPath = url.split('/upload/')[1];
-      
-      // Use Cloudinary API for maximum quality
-      // q_100: Maximum quality (no compression)
-      // f_auto: Best format for browser (WebM for Chrome, MP4 for others)
-      // fl_preserve_transparency: Preserve all video data
-      // br_auto: Automatic bitrate optimization without quality loss
-      return `${baseUrl}/upload/q_100,f_auto,fl_preserve_transparency,br_auto/${videoPath}`;
-    }
-    return url;
-  };
-
-  const highQualityVideoUrl = getHighQualityVideoUrl(video.videoUrl);
   const posterUrl = video.videoUrl.includes('cloudinary.com') 
-    ? `${video.videoUrl.split('/upload/')[0]}/upload/q_100,f_auto,so_0.5/${video.videoUrl.split('/upload/')[1].replace('.mp4', '.jpg')}`
+    ? `${video.videoUrl.split('/upload/')[0]}/upload/so_0.5/${video.videoUrl.split('/upload/')[1].replace('.mp4', '.jpg')}`
     : undefined;
 
   useEffect(() => {
@@ -151,7 +134,7 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
           preload="metadata"
           poster={posterUrl}
         >
-          <source src={highQualityVideoUrl} type="video/mp4" />
+          <source src={video.videoUrl} type="video/mp4" />
         </video>
         
         {/* Fullscreen hint on hover */}
@@ -172,25 +155,9 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
 };
 
 const FPVVideos: React.FC = () => {
-  // Generate high-quality video URLs using Cloudinary API
-  const getHighQualityVideoUrl = (url: string) => {
-    if (url.includes('cloudinary.com')) {
-      const baseUrl = url.split('/upload/')[0];
-      const videoPath = url.split('/upload/')[1];
-      
-      // Use Cloudinary API for maximum quality
-      // q_100: Maximum quality (no compression)
-      // f_auto: Best format for browser (WebM for Chrome, MP4 for others)
-      // fl_preserve_transparency: Preserve all video data
-      // br_auto: Automatic bitrate optimization without quality loss
-      return `${baseUrl}/upload/q_100,f_auto,fl_preserve_transparency,br_auto/${videoPath}`;
-    }
-    return url;
-  };
-
   const getPosterUrl = (url: string) => {
     if (url.includes('cloudinary.com')) {
-      return `${url.split('/upload/')[0]}/upload/q_100,f_auto,so_0.5/${url.split('/upload/')[1].replace('.mp4', '.jpg')}`;
+      return `${url.split('/upload/')[0]}/upload/so_0.5/${url.split('/upload/')[1].replace('.mp4', '.jpg')}`;
     }
     return undefined;
   };
@@ -247,7 +214,7 @@ const FPVVideos: React.FC = () => {
                   preload="metadata"
                   poster={getPosterUrl(fpvVideos[1].videoUrl)}
                 >
-                  <source src={getHighQualityVideoUrl(fpvVideos[1].videoUrl)} type="video/mp4" />
+                  <source src={fpvVideos[1].videoUrl} type="video/mp4" />
                 </video>
               </div>
             </AnimatedSection>
@@ -277,7 +244,7 @@ const FPVVideos: React.FC = () => {
                   preload="metadata"
                   poster={getPosterUrl(fpvVideos[3].videoUrl)}
                 >
-                  <source src={getHighQualityVideoUrl(fpvVideos[3].videoUrl)} type="video/mp4" />
+                  <source src={fpvVideos[3].videoUrl} type="video/mp4" />
                 </video>
               </div>
             </AnimatedSection>
@@ -300,7 +267,7 @@ const FPVVideos: React.FC = () => {
                 preload="metadata"
                 poster={getPosterUrl(fpvVideos[0].videoUrl)}
               >
-                <source src={getHighQualityVideoUrl(fpvVideos[0].videoUrl)} type="video/mp4" />
+                <source src={fpvVideos[0].videoUrl} type="video/mp4" />
               </video>
             </div>
           </AnimatedSection>
