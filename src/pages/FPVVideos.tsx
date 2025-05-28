@@ -43,9 +43,7 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
-  // Generate poster from video first frame using time fragment
-  const posterUrl = `${video.videoUrl}#t=0.5`;
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     // Check if device is mobile
@@ -63,23 +61,39 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
+    const handleLoadedData = () => {
+      setIsLoaded(true);
+      // Seek to an interesting point for the poster frame
+      videoElement.currentTime = 3 + (index * 2);
+    };
+
+    videoElement.addEventListener('loadeddata', handleLoadedData);
+
     if (!isMobile) {
       // Desktop hover functionality only
       if (isHovered) {
+        videoElement.currentTime = 0; // Reset to beginning for playback
         videoElement.play().catch(() => {});
       } else {
         videoElement.pause();
-        videoElement.currentTime = 0; // Reset to beginning
+        if (!isLoaded) {
+          // If not loaded yet, seek to poster time
+          videoElement.currentTime = 3 + (index * 2);
+        }
       }
     }
-    // Mobile: No autoplay, just click to play/fullscreen
-  }, [isHovered, isMobile]);
+
+    return () => {
+      videoElement.removeEventListener('loadeddata', handleLoadedData);
+    };
+  }, [isHovered, isMobile, isLoaded, index]);
 
   const handleVideoClick = () => {
     const videoElement = videoRef.current;
     if (videoElement) {
       if (isMobile) {
         // Mobile: Play and go fullscreen
+        videoElement.currentTime = 0; // Start from beginning
         videoElement.play().then(() => {
           // After playing, try fullscreen
           if ((videoElement as any).webkitEnterFullscreen) {
@@ -126,16 +140,24 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
       >
         <video
           ref={videoRef}
-          className="w-full h-auto object-contain transition-all duration-700 group-hover:scale-105"
+          className={`w-full h-auto object-contain transition-all duration-700 group-hover:scale-105 ${
+            isLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
           muted
           loop
           playsInline
           webkit-playsinline="true"
           preload="metadata"
-          poster={posterUrl}
         >
           <source src={video.videoUrl} type="video/mp4" />
         </video>
+
+        {/* Loading state */}
+        {!isLoaded && (
+          <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 border-gold-400 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
         
         {/* Fullscreen hint on hover */}
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -155,9 +177,9 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
 };
 
 const FPVVideos: React.FC = () => {
-  // Generate poster from video first frame using time fragment
+  // Generate poster from video at interesting points (avoiding black start frames)
   const getPosterUrl = (url: string) => {
-    return `${url}#t=0.5`;
+    return `${url}#t=5`;
   };
 
   return (
