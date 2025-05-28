@@ -44,6 +44,7 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     // Check if device is mobile
@@ -61,71 +62,92 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    const handleLoadedData = () => {
+    // Timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      if (!isLoaded && !hasError) {
+        console.log('Video loading timeout for:', video.id);
+        setIsLoaded(true); // Show the video anyway
+      }
+    }, 10000); // 10 second timeout
+
+    const handleCanPlay = () => {
+      console.log('Video can play:', video.id);
       setIsLoaded(true);
-      // Seek to an interesting point for the poster frame
-      videoElement.currentTime = 3 + (index * 2);
+      clearTimeout(loadingTimeout);
+      // Set to a good frame for preview after a short delay
+      setTimeout(() => {
+        if (videoElement && !isHovered) {
+          videoElement.currentTime = 2 + (index * 1.5);
+        }
+      }, 200);
     };
 
-    videoElement.addEventListener('loadeddata', handleLoadedData);
+    const handleError = (e: any) => {
+      console.error('Video loading error for:', video.id, e);
+      setHasError(true);
+      setIsLoaded(false);
+      clearTimeout(loadingTimeout);
+    };
 
-    if (!isMobile) {
-      // Desktop hover functionality only
+    const handleLoadedData = () => {
+      console.log('Video loaded data:', video.id);
+      setIsLoaded(true);
+      clearTimeout(loadingTimeout);
+    };
+
+    // Add event listeners
+    videoElement.addEventListener('canplay', handleCanPlay);
+    videoElement.addEventListener('loadeddata', handleLoadedData);
+    videoElement.addEventListener('error', handleError);
+
+    // Desktop hover functionality
+    if (!isMobile && isLoaded) {
       if (isHovered) {
-        videoElement.currentTime = 0; // Reset to beginning for playback
-        videoElement.play().catch(() => {});
+        videoElement.currentTime = 0;
+        videoElement.play().catch(console.error);
       } else {
         videoElement.pause();
-        if (!isLoaded) {
-          // If not loaded yet, seek to poster time
-          videoElement.currentTime = 3 + (index * 2);
-        }
       }
     }
 
     return () => {
+      clearTimeout(loadingTimeout);
+      videoElement.removeEventListener('canplay', handleCanPlay);
       videoElement.removeEventListener('loadeddata', handleLoadedData);
+      videoElement.removeEventListener('error', handleError);
     };
-  }, [isHovered, isMobile, isLoaded, index]);
+  }, [isHovered, isMobile, isLoaded, index, video.id, hasError]);
 
   const handleVideoClick = () => {
     const videoElement = videoRef.current;
-    if (videoElement) {
+    if (videoElement && !hasError) {
       if (isMobile) {
         // Mobile: Play and go fullscreen
-        videoElement.currentTime = 0; // Start from beginning
+        videoElement.currentTime = 0;
         videoElement.play().then(() => {
-          // After playing, try fullscreen
           if ((videoElement as any).webkitEnterFullscreen) {
-            // iOS Safari specific method
             (videoElement as any).webkitEnterFullscreen();
           } else if (videoElement.requestFullscreen) {
             videoElement.requestFullscreen().catch(() => {});
-          } else if ((videoElement as any).webkitRequestFullscreen) {
-            (videoElement as any).webkitRequestFullscreen();
           }
         }).catch(() => {
-          // If play fails, just try fullscreen
           if ((videoElement as any).webkitEnterFullscreen) {
             (videoElement as any).webkitEnterFullscreen();
-          } else if (videoElement.requestFullscreen) {
-            videoElement.requestFullscreen().catch(() => {});
           }
         });
       } else {
-        // Desktop: Just fullscreen (video already playing from hover)
+        // Desktop: Just fullscreen
         if (videoElement.requestFullscreen) {
           videoElement.requestFullscreen();
         } else if ((videoElement as any).webkitRequestFullscreen) {
           (videoElement as any).webkitRequestFullscreen();
-        } else if ((videoElement as any).mozRequestFullScreen) {
-          (videoElement as any).mozRequestFullScreen();
-        } else if ((videoElement as any).msRequestFullscreen) {
-          (videoElement as any).msRequestFullscreen();
         }
       }
     }
   };
+
+  // Generate a simple poster image URL
+  const posterUrl = `https://via.placeholder.com/800x450/1a1a1a/d4af37?text=${encodeURIComponent(video.id.toUpperCase())}`;
 
   return (
     <AnimatedSection
@@ -133,14 +155,25 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
       className="group relative overflow-hidden rounded-2xl bg-gray-950 cursor-pointer"
     >
       <div 
-        className="relative w-full"
+        className="relative w-full aspect-video"
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
         onClick={handleVideoClick}
       >
+        {/* Static poster image for immediate preview */}
+        <div 
+          className={`absolute inset-0 bg-cover bg-center transition-opacity duration-500 ${
+            isLoaded ? 'opacity-0' : 'opacity-100'
+          }`}
+          style={{ 
+            backgroundImage: `url(${posterUrl})`,
+            backgroundColor: '#1a1a1a'
+          }}
+        />
+
         <video
           ref={videoRef}
-          className={`w-full h-auto object-contain transition-all duration-700 group-hover:scale-105 ${
+          className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${
             isLoaded ? 'opacity-100' : 'opacity-0'
           }`}
           muted
@@ -152,19 +185,34 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
           <source src={video.videoUrl} type="video/mp4" />
         </video>
 
-        {/* Loading state */}
-        {!isLoaded && (
-          <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-gold-400 border-t-transparent rounded-full animate-spin"></div>
+        {/* Loading state - only show if not loaded and no error */}
+        {!isLoaded && !hasError && (
+          <div className="absolute inset-0 bg-gray-900/80 flex items-center justify-center z-10">
+            <div className="flex flex-col items-center">
+              <div className="w-6 h-6 border-2 border-gold-400 border-t-transparent rounded-full animate-spin mb-2"></div>
+              <span className="text-xs text-gray-400">Loading {video.id}...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Error state */}
+        {hasError && (
+          <div className="absolute inset-0 bg-gray-900 flex items-center justify-center z-10">
+            <div className="text-center">
+              <div className="text-red-400 mb-2">⚠</div>
+              <span className="text-xs text-gray-400">Failed to load</span>
+            </div>
           </div>
         )}
         
         {/* Fullscreen hint on hover */}
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="bg-black/70 text-white px-2 py-1 rounded text-xs">
-            Click for fullscreen
+        {isLoaded && (
+          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+            <div className="bg-black/70 text-white px-2 py-1 rounded text-xs">
+              Click for fullscreen
+            </div>
           </div>
-        </div>
+        )}
         
         {/* Subtle overlay on hover */}
         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -177,11 +225,6 @@ const VideoTile: React.FC<{ video: VideoData; index: number }> = ({ video, index
 };
 
 const FPVVideos: React.FC = () => {
-  // Generate poster from video at interesting points (avoiding black start frames)
-  const getPosterUrl = (url: string) => {
-    return `${url}#t=5`;
-  };
-
   return (
     <div className="min-h-screen bg-black text-white">
       <Navbar />
@@ -225,14 +268,13 @@ const FPVVideos: React.FC = () => {
             <AnimatedSection delay={200} className="relative">
               <div className="rounded-3xl overflow-hidden shadow-2xl transform rotate-3 hover:rotate-0 transition-transform duration-700 bg-gray-950">
                 <video
-                  className="w-full h-auto object-contain"
+                  className="w-full h-auto object-cover"
                   muted
                   loop
                   playsInline
                   autoPlay
                   webkit-playsinline="true"
                   preload="metadata"
-                  poster={getPosterUrl(fpvVideos[1].videoUrl)}
                 >
                   <source src={fpvVideos[1].videoUrl} type="video/mp4" />
                 </video>
@@ -255,14 +297,13 @@ const FPVVideos: React.FC = () => {
             <AnimatedSection delay={600} className="relative">
               <div className="rounded-3xl overflow-hidden shadow-2xl transform -rotate-3 hover:rotate-0 transition-transform duration-700 bg-gray-950">
                 <video
-                  className="w-full h-auto object-contain"
+                  className="w-full h-auto object-cover"
                   muted
                   loop
                   playsInline
                   autoPlay
                   webkit-playsinline="true"
                   preload="metadata"
-                  poster={getPosterUrl(fpvVideos[3].videoUrl)}
                 >
                   <source src={fpvVideos[3].videoUrl} type="video/mp4" />
                 </video>
@@ -278,14 +319,13 @@ const FPVVideos: React.FC = () => {
           <AnimatedSection>
             <div className="rounded-3xl overflow-hidden shadow-2xl bg-gray-950">
               <video
-                className="w-full h-auto object-contain"
+                className="w-full h-auto object-cover"
                 muted
                 loop
                 playsInline
                 autoPlay
                 webkit-playsinline="true"
                 preload="metadata"
-                poster={getPosterUrl(fpvVideos[0].videoUrl)}
               >
                 <source src={fpvVideos[0].videoUrl} type="video/mp4" />
               </video>
